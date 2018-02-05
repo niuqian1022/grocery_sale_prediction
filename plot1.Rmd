@@ -1,0 +1,77 @@
+---
+title: 'Grocery sale prediction: exploratory analysis'
+output:
+  pdf_document: default
+  html_notebook: default
+---
+
+```{r echo=FALSE, results='hide', message=FALSE}
+library(dplyr)
+library(ggplot2)
+library(lubridate)
+library(data.table)
+```
+## It is shown below that daily sales increased from year to year during 2013-17, and the trend within each year seems differed among years.
+```{r echo=FALSE, results='hide', message=FALSE}
+daily_sale = read.csv('daily_sale.csv')
+time.axis = strptime(daily_sale$date, format = "%Y-%m-%d")
+daily_sale$date = time.axis
+daily_sale$year = year(time.axis)
+q<-qplot(x = date, y = unit_sales, data = daily_sale, geom = "line", facets = year~.,
+         xlab = "Date", ylab = "Total daily sale across all stores", 
+         main = "Total daily sales during 2013-2017",
+         colour = I("blue"))
+q+theme_bw(base_size = 12)
+```
+## Focusing on 2017:
+```{r echo=FALSE, results='hide', message=FALSE}
+daily_sale_2017 = subset(daily_sale, year == 2017)
+q<-qplot(x = date, y = unit_sales, data = daily_sale_2017, geom = "line", 
+         xlab = "Date", ylab = "Total daily sale across all stores", 
+         main = "Total daily sales in 2017",
+         colour = I("blue"))
+q+theme_bw(base_size = 12)
+```
+
+
+```{r echo=FALSE, results='hide', message=FALSE}
+data = fread('train_features_extracted.csv')
+data<-tbl_df(data)
+```
+
+## Daily sales by State:
+```{r echo=FALSE, results='hide', message=FALSE}
+salesByState <- data %>% group_by(date, state)
+sale_state<-summarise(salesByState, sum((exp(unit_sales_log)-1), na.rm = T))
+colnames(sale_state) = c('date', 'state', 'daily_sale')
+mean_sale_state = summarise(group_by(sale_state, state), mean(daily_sale))
+colnames(mean_sale_state) = c('state', 'mean_daily_sales')
+mean_sale_state$state <- factor(mean_sale_state$state, 
+                                levels = mean_sale_state$state[order(mean_sale_state$mean_daily_sales, 
+                                                                     decreasing = TRUE)])
+g = ggplot(mean_sale_state, aes(state, mean_daily_sales)) 
+g = g + geom_col(fill = "blue")
+g = g + labs(x = "State", y = 'Mean daily total sales',
+            title = 'Mean daily total sales across all the stores in each State of Ecuador')
+g
+```
+
+## Daily sales by different types of stores:
+```{r echo=FALSE, results='hide', message=FALSE}
+salesByFamily <- data %>% group_by(date, family)
+sale_family<-summarise(salesByFamily, sum((exp(unit_sales_log)-1), na.rm = T))
+colnames(sale_family) = c('date', 'family', 'daily_sale')
+mean_sale_family = summarise(group_by(sale_family, family), mean(daily_sale))
+colnames(mean_sale_family) = c('family', 'mean_daily_sales')
+mean_sale_family$family <- factor(mean_sale_family$family, 
+                                levels = mean_sale_family$family[order(mean_sale_family$mean_daily_sales, 
+                                                                     decreasing = TRUE)])
+g = ggplot(mean_sale_family, aes(family, mean_daily_sales)) 
+g = g + geom_col(fill = "green")
+g = g + labs(x = "Family", y = 'Mean daily total sales of a particular family of goods',
+             title = 'Mean daily total sales across all the stores for each family')
+g = g + coord_flip()
+g 
+```
+
+
